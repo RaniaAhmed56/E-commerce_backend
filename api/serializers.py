@@ -404,19 +404,37 @@ class ProductWriteSerializer(serializers.ModelSerializer):
 
     def _save_variant_image(self, request, color_key, fallback_path):
         """
-        Look for a per-variant image file in request.FILES.
-        Convention: field name = "variant_image_<color>" or "variant_image_<index>"
-        Falls back to the path string passed from JSON.
+        Save a variant image from:
+        1. request.FILES  (multipart upload)
+        2. base64 data URI in fallback_path  (data:image/...;base64,...)
+        3. Plain URL / path string — stored as-is
         """
-        if not request:
-            return fallback_path
-        field = f"variant_image_{color_key}"
-        img_file = request.FILES.get(field)
-        if img_file:
-            from django.core.files.storage import default_storage
-            filename = f"products/variants/{img_file.name}"
-            return default_storage.save(filename, img_file)
-        return fallback_path
+        import base64 as b64mod, uuid
+        from django.core.files.base import ContentFile
+        from django.core.files.storage import default_storage
+
+        # 1. Uploaded file via multipart
+        if request:
+            field = f"variant_image_{color_key}"
+            img_file = request.FILES.get(field)
+            if img_file:
+                filename = f"products/variants/{img_file.name}"
+                return default_storage.save(filename, img_file)
+
+        # 2. base64 data URI  e.g.  data:image/jpeg;base64,/9j/4AA...
+        if isinstance(fallback_path, str) and fallback_path.startswith("data:image"):
+            try:
+                header, data = fallback_path.split(",", 1)
+                ext = header.split("/")[1].split(";")[0]
+                decoded = b64mod.b64decode(data)
+                fname = f"products/variants/{uuid.uuid4().hex}.{ext}"
+                saved = default_storage.save(fname, ContentFile(decoded))
+                return default_storage.url(saved)
+            except Exception:
+                return ""
+
+        # 3. Plain URL or empty
+        return fallback_path or ""
 
     def _handle_variants(self, product, variants_json, request):
         """

@@ -22,3 +22,22 @@ class EmailOrUsernameBackend(ModelBackend):
         if user.check_password(password) and self.user_can_authenticate(user):
             return user
         return None
+
+
+# ── Silent JWT Authentication ─────────────────────────
+# بيتجاهل الـ token الغلط أو المنتهي بدل ما يرفض الـ request
+# ده مهم لأن AllowAny endpoints محتاجة تشتغل حتى لو في token غلط
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+
+class SilentJWTAuthentication(JWTAuthentication):
+    """
+    Same as JWTAuthentication but returns None instead of raising
+    an exception when the token is invalid or expired.
+    This lets AllowAny endpoints work even with a stale token in the header.
+    """
+    def authenticate(self, request):
+        try:
+            return super().authenticate(request)
+        except (InvalidToken, TokenError):
+            return None

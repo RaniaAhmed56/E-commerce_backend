@@ -91,7 +91,7 @@ AUTH_USER_MODEL = 'api.User'
 # ── DRF ──────────────────────────────────────────
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "api.backends.SilentJWTAuthentication",  # تتجاهل الـ token الغلط بدل ما ترفض الـ request
     ),
     # تم التعديل للسماح بالوصول العام (AllowAny)
     "DEFAULT_PERMISSION_CLASSES": (
